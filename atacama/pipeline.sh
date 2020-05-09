@@ -215,3 +215,10 @@ docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
 	qiime metadata tabulate \
 	--m-input-file taxonomy.qza \
 	--o-visualization taxonomy.qzv
+
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime tools export \
+	--input-path taxonomy.qzv \ 
+	--output-path taxonomy
+
+
