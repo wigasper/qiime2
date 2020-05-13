@@ -1,4 +1,4 @@
-# get that data
+# get data
 wget -O "sample-metadata.tsv" \
   	"https://data.qiime2.org/2020.2/tutorials/atacama-soils/sample_metadata.tsv"
 
@@ -33,8 +33,8 @@ docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
 	--i-seqs emp-paired-end-sequences.qza \ 
 	--o-per-sample-sequences demux.qza \
 	--o-error-correction-details demux-details.qza
-# seems to be single threaded
-# takes awhile. not using much memory with this data
+# single threaded
+# takes awhile
 
 docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
 	qiime demux summarize \
@@ -197,7 +197,22 @@ docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
 
 # clear correlation in the output and p=0.001
 
-# skipping over alpha rarefaction plotting
+# alpha rarefaction plotting
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime diversity alpha-rarefaction \
+	--i-table table.qza \
+	--i-phylogeny rooted-tree.qza \
+	--p-max-depth 4300 \
+	--m-metadata-file sample-metadata.tsv \
+	--o-visualization alpha-rarefaction.qzv
+# p-max-depth param comes from median frequency per sample value
+# if the median value is always good this can be easily automated
+
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime tools export \
+	--input-path alpha-rarefaction.qzv \ 
+	--output-path alpha-rarefaction
+
 # try the silva classifier
 wget -O 'silva-132-99-515-806-nb-classifier.qza' \
 	'https://data.qiime2.org/2020.2/common/silva-132-99-515-806-nb-classifier.qza'
@@ -221,4 +236,47 @@ docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
 	--input-path taxonomy.qzv \ 
 	--output-path taxonomy
 
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime taxa barplot \
+	--i-table table.qza \ 
+	--i-taxonomy taxonomy.qza \
+	--m-metadata-file sample-metadata.tsv \ 
+	--o-visualization taxa-bar-plots.qzv
+
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime tools export \ 
+	--input-path taxa-bar-plots.qzv \ 
+	--output-path taxa-bar-plots
+
+# biom stuffs?
+# need to export table, need to think about naming and organization here
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime tools export \ 
+	--input-path table.qza \ 
+	--output-path feature-table
+
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	qiime tools export \ 
+	--input-path taxonomy.qza \ 
+	--output-path taxonomy-table
+
+# modify header
+sed -i '1d' taxonomy-table/taxonomy.tsv
+sed -i '1i #OTUID	taxonomy	confidence' taxonomy-table/taxonomy.tsv
+
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	biom add-metadata \
+	-i feature-table/feature-table.biom \
+	-o otu-table.biom \
+	--observation-metadata-fp taxonomy-table/taxonomy.tsv \
+	--sc-separated taxonomy
+
+docker run -t -i -v $WORK_DIR:/data qiime2/core:2020.2 \
+	biom convert \
+	-i otu-table.biom \
+	-o otu-table-taxonomy.tsv \
+	--to-tsv \
+	--header-key taxonomy \
+	--output-metadata-id 'Consensus Lineage'
+# need to map the otu IDs to names or different identifiers
 
